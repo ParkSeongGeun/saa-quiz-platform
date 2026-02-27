@@ -27,7 +27,6 @@ backend/venv/
 backend/.venv/
 
 # 민감한 데이터 파일
-backend/korean_classified.json
 backend/insert_questions.sql
 backend/test_db.db
 backend/tempCodeRunnerFile.py

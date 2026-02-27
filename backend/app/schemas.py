@@ -81,5 +81,7 @@ class TipResponse(BaseModel):
     question_id: int
     tip_text: str
     updated_at: datetime
+    question_text: Optional[str] = None
+    domain: Optional[str] = None
     class Config:
         from_attributes = True

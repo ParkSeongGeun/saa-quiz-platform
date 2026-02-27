@@ -13,8 +13,21 @@ def get_all_user_tips(
     current_user: dict = Depends(get_current_user)
 ):
     user_id = int(current_user["sub"])
-    tips = db.query(models.Tip).filter(models.Tip.user_id == user_id).all()
-    return tips
+    
+    # Join Tip with Question to get question content
+    tips_with_questions = db.query(
+        models.Tip.question_id,
+        models.Tip.tip_text,
+        models.Tip.updated_at,
+        models.Question.question.label("question_text"),
+        models.Question.domain
+    ).join(
+        models.Question, models.Tip.question_id == models.Question.id
+    ).filter(
+        models.Tip.user_id == user_id
+    ).order_by(models.Tip.updated_at.desc()).all()
+    
+    return tips_with_questions
 
 @router.get("/{question_id}", response_model=schemas.TipResponse)
 def get_tip(

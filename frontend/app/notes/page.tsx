@@ -1,16 +1,26 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { AppShell } from "@/components/app-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { StickyNote, Trash2, Save, Loader2 } from "lucide-react"
-import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { StickyNote, Trash2, Save, Loader2, BookOpen, ExternalLink } from "lucide-react"
+import { domains as mockDomains } from "@/lib/mock-data"
+
+const domainMap: Record<string, string> = {
+  "Resilience": "design-resilient",
+  "Performance": "design-performant",
+  "Security": "design-secure",
+  "Cost": "design-cost",
+}
 
 export default function NotesPage() {
-  useAuth()
+  const { token, isLoading: authLoading } = useAuth()
+  const router = useRouter()
 
   const [notes, setNotes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -20,9 +30,9 @@ export default function NotesPage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
   const fetchNotes = async () => {
+    if (!token) return
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
       const response = await fetch(`${API_URL}/api/tips/`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -41,8 +51,10 @@ export default function NotesPage() {
   }
 
   useEffect(() => {
-    fetchNotes()
-  }, [API_URL])
+    if (!authLoading && token) {
+      fetchNotes()
+    }
+  }, [token, authLoading, API_URL])
 
   const deleteNote = async (questionId: number) => {
     try {
@@ -79,7 +91,12 @@ export default function NotesPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setNotes(prev => prev.map(n => n.question_id === questionId ? data : n))
+        // We need to merge the new tip data with existing question text/domain
+        setNotes(prev => prev.map(n => 
+          n.question_id === questionId 
+            ? { ...n, tip_text: data.tip_text, updated_at: data.updated_at } 
+            : n
+        ))
         setEditingId(null)
         setEditText("")
       }
@@ -88,7 +105,7 @@ export default function NotesPage() {
     }
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <AppShell>
         <div className="flex h-[400px] items-center justify-center">
@@ -109,44 +126,65 @@ export default function NotesPage() {
         </div>
 
         {/* Notes list */}
-        <div className="space-y-2.5">
+        <div className="space-y-4">
           {notes.map((note) => {
             const isEditing = editingId === note.question_id
+            const domainId = domainMap[note.domain] || note.domain
+            const domainKo = mockDomains.find(d => d.id === domainId)?.ko || note.domain
 
             return (
-              <Card key={note.question_id} className="border-border bg-card">
-                <CardContent className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <StickyNote className="mt-0.5 h-5 w-5 shrink-0 text-info" />
-                        <div>
-                          <Link href={`/practice`}>
-                            <span className="text-xs font-bold text-primary hover:underline cursor-pointer">
-                              문제 {note.question_id}
-                            </span>
-                          </Link>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {new Date(note.updated_at).toLocaleDateString('ko-KR')}
-                          </p>
-                        </div>
+              <Card key={note.question_id} className="border-border bg-card overflow-hidden">
+                <CardContent className="p-0">
+                  {/* Question Context Header */}
+                  <div className="bg-secondary/20 px-4 py-3 border-b border-border">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-primary">Q{note.question_id}</span>
+                        <Badge variant="outline" className="text-[10px] h-5 border-border bg-background">
+                          {domainKo}
+                        </Badge>
                       </div>
-                      <div className="flex gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                        onClick={() => router.push(`/practice?start=${note.question_id}`)}
+                      >
+                        {"문제 보기"}
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <p className="text-sm font-medium text-card-foreground line-clamp-2 leading-relaxed">
+                      {note.question_text}
+                    </p>
+                  </div>
+
+                  {/* Note Content */}
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <StickyNote className="h-4 w-4 text-info" />
+                        <span className="text-xs font-semibold text-info">{"메모"}</span>
+                        <span className="text-[10px] text-muted-foreground ml-1">
+                          {new Date(note.updated_at).toLocaleDateString('ko-KR')}
+                        </span>
+                      </div>
+                      <div className="flex gap-1.5">
                         {isEditing ? (
                           <>
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 gap-1.5"
+                              className="h-7 text-xs gap-1"
                               onClick={() => saveNote(note.question_id)}
                             >
-                              <Save className="h-3.5 w-3.5" />
+                              <Save className="h-3 w-3" />
                               {"저장"}
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8"
+                              className="h-7 text-xs"
                               onClick={() => {
                                 setEditingId(null)
                                 setEditText("")
@@ -160,7 +198,7 @@ export default function NotesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8"
+                              className="h-7 text-xs"
                               onClick={() => {
                                 setEditingId(note.question_id)
                                 setEditText(note.tip_text)
@@ -171,10 +209,10 @@ export default function NotesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 gap-1.5 text-destructive hover:bg-destructive/10"
+                              className="h-7 text-xs gap-1 text-destructive hover:bg-destructive/10"
                               onClick={() => deleteNote(note.question_id)}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-3 w-3" />
                               {"삭제"}
                             </Button>
                           </>
@@ -186,11 +224,11 @@ export default function NotesPage() {
                       <Textarea
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
-                        className="min-h-20 border-info/20 bg-card/50"
+                        className="min-h-24 border-info/20 bg-card/50 text-sm"
                         placeholder="노트 내용을 입력하세요..."
                       />
                     ) : (
-                      <div className="rounded-lg bg-info/5 border border-info/20 p-3">
+                      <div className="rounded-lg bg-info/5 border border-info/10 p-3">
                         <p className="text-sm leading-relaxed text-card-foreground whitespace-pre-wrap">
                           {note.tip_text}
                         </p>

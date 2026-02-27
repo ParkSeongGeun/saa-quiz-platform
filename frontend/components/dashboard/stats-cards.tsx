@@ -14,7 +14,7 @@ export function StatsCards() {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('token')
-        const response = await fetch(`${API_URL}/api/stats`, {
+        const response = await fetch(`${API_URL}/api/stats/`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

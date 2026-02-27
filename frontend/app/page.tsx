@@ -2,7 +2,6 @@
 
 import { useAuth } from "@/hooks/use-auth"
 import { AppShell } from "@/components/app-shell"
-import { StatsCards } from "@/components/dashboard/stats-cards"
 import { DomainProgress } from "@/components/dashboard/domain-progress"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 
@@ -22,7 +21,6 @@ export default function DashboardPage() {
         </div>
 
         <QuickActions />
-        <StatsCards />
 
         <div>
           <DomainProgress />

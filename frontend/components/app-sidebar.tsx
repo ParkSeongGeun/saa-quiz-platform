@@ -1,19 +1,19 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   BookOpen,
   RotateCcw,
   Bookmark,
   StickyNote,
-  User,
   ChevronLeft,
   ChevronRight,
   Award,
   Sun,
   Moon,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
@@ -25,21 +25,26 @@ const navItems = [
   { href: "/review", label: "오답 노트", icon: RotateCcw },
   { href: "/bookmarks", label: "북마크", icon: Bookmark },
   { href: "/notes", label: "내 노트", icon: StickyNote },
-  { href: "/profile", label: "프로필", icon: User },
 ]
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
 
   useEffect(() => { setMounted(true) }, [])
 
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    router.push('/login')
+  }
+
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-in-out",
         collapsed ? "w-16" : "w-60"
       )}
     >
@@ -87,6 +92,17 @@ export function AppSidebar() {
         >
           {mounted && theme === "dark" ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
           {!collapsed && <span>{mounted && theme === "dark" ? "라이트 모드" : "다크 모드"}</span>}
+        </button>
+        <button
+          onClick={handleLogout}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
+            collapsed && "justify-center px-0"
+          )}
+          aria-label="로그아웃"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>로그아웃</span>}
         </button>
         <button
           onClick={() => setCollapsed(!collapsed)}

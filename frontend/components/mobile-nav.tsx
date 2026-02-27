@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   BookOpen,
@@ -10,6 +10,7 @@ import {
   StickyNote,
   Sun,
   Moon,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
@@ -25,10 +26,16 @@ const navItems = [
 
 export function MobileNav() {
   const pathname = usePathname()
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    router.push('/login')
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-border bg-sidebar py-1.5 md:hidden">
@@ -55,6 +62,14 @@ export function MobileNav() {
       >
         {mounted && theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         <span>{"테마"}</span>
+      </button>
+      <button
+        onClick={handleLogout}
+        className="flex flex-col items-center gap-0.5 px-2 py-1 text-xs text-muted-foreground transition-colors"
+        aria-label="로그아웃"
+      >
+        <LogOut className="h-4 w-4" />
+        <span>로그아웃</span>
       </button>
     </nav>
   )

@@ -1,0 +1,37 @@
+# ============================================================
+# .gitignore
+# saa-quiz-platform 모노레포
+# ============================================================
+
+# ── 공통 ────────────────────────────────────────────────────
+.DS_Store
+*.log
+*.tmp
+
+# ── Frontend (Next.js) ──────────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.development
+
+# ── Backend (FastAPI) ───────────────────────────────────────
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/.env
+backend/.env.production
+backend/venv/
+backend/.venv/
+
+# 민감한 데이터 파일
+backend/korean_classified.json
+backend/insert_questions.sql
+backend/test_db.db
+backend/tempCodeRunnerFile.py
+
+# 불필요한 문서/가이드
+backend/FastAPIGuide.pdf
+backend/GEMINI.md

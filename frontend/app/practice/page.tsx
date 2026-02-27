@@ -31,7 +31,7 @@ const reverseDomainMap: Record<string, string> = {
 }
 
 function PracticeContent() {
-  useAuth()
+  const { token, isLoading: authLoading } = useAuth()
 
   const searchParams = useSearchParams()
   const mode = searchParams.get('mode') // 'bookmark', 'wrong', or null
@@ -50,9 +50,9 @@ function PracticeContent() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
   const fetchQuestions = useCallback(async () => {
+    if (!token) return;
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
       let url = ''
 
       if (mode === 'bookmark') {
@@ -97,12 +97,12 @@ function PracticeContent() {
     } finally {
       setLoading(false)
     }
-  }, [selectedDomain, mode, startQuestionId, API_URL])
+  }, [selectedDomain, mode, startQuestionId, API_URL, token])
 
   const fetchQuestionDetail = useCallback(async (id: number) => {
+    if (!token) return;
     setDetailLoading(true)
     try {
-      const token = localStorage.getItem('token')
       const response = await fetch(`${API_URL}/api/questions/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -141,19 +141,31 @@ function PracticeContent() {
     } finally {
       setDetailLoading(false)
     }
-  }, [API_URL])
+  }, [API_URL, token])
 
   useEffect(() => {
-    fetchQuestions()
-  }, [fetchQuestions])
+    if (!authLoading && token) {
+      fetchQuestions()
+    }
+  }, [fetchQuestions, authLoading, token])
 
   useEffect(() => {
-    if (questions.length > 0 && questions[currentIndex]) {
+    if (!authLoading && token && questions.length > 0 && questions[currentIndex]) {
       fetchQuestionDetail(questions[currentIndex].id)
-    } else {
+    } else if (!authLoading && token && questions.length === 0 && !loading) {
       setCurrentQuestionDetail(null)
     }
-  }, [currentIndex, questions, fetchQuestionDetail])
+  }, [currentIndex, questions, fetchQuestionDetail, authLoading, token, loading])
+
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex h-[400px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    )
+  }
 
   const handleAnswer = (questionId: number, isCorrect: boolean | null) => {
     setAnsweredQuestions(prev => {

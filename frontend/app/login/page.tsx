@@ -36,6 +36,10 @@ export default function LoginPage() {
 
       const data = await response.json()
       localStorage.setItem("token", data.access_token)
+      
+      // 쿠키에 토큰 저장 (7일간 유지)
+      document.cookie = `token=${data.access_token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
+      
       router.push("/")
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그인 중 오류가 발생했습니다")

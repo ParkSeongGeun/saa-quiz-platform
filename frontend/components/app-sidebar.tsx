@@ -38,6 +38,8 @@ export function AppSidebar() {
 
   const handleLogout = () => {
     localStorage.removeItem('token')
+    // 쿠키 삭제 (만료 시간을 과거로 설정)
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax"
     router.push('/login')
   }
 

@@ -4,9 +4,20 @@ import { useAuth } from "@/hooks/use-auth"
 import { AppShell } from "@/components/app-shell"
 import { DomainProgress } from "@/components/dashboard/domain-progress"
 import { QuickActions } from "@/components/dashboard/quick-actions"
+import { Loader2 } from "lucide-react"
 
 export default function DashboardPage() {
-  useAuth()
+  const { token, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!token) return null
 
   return (
     <AppShell>

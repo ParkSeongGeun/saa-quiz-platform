@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useAuth } from "@/hooks/use-auth"
 import { AppShell } from "@/components/app-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -54,6 +55,8 @@ const initialNotes: NoteData[] = [
 ]
 
 export default function NotesPage() {
+  useAuth()
+
   const [notes, setNotes] = useState<NoteData[]>(initialNotes)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editContent, setEditContent] = useState("")

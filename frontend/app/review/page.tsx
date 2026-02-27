@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useAuth } from "@/hooks/use-auth"
 import { AppShell } from "@/components/app-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -26,6 +27,8 @@ const wrongAnswerMap: Record<number, string> = {
 }
 
 export default function ReviewPage() {
+  useAuth()
+
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null)
 

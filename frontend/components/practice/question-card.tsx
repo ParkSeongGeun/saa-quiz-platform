@@ -14,6 +14,7 @@ import {
   XCircle,
   StickyNote,
   Lightbulb,
+  Loader2,
 } from "lucide-react"
 import type { Question } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
@@ -38,13 +39,40 @@ export function QuestionCard({
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [note, setNote] = useState("")
   const [showNote, setShowNote] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isCorrect = selectedAnswer === question.correctAnswer
   const isSubmitted = selectedAnswer !== null && showExplanation
 
-  const handleSubmit = () => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+  const handleSubmit = async () => {
     if (selectedAnswer) {
-      setShowExplanation(true)
+      setIsSubmitting(true)
+      try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(`${API_URL}/api/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            question_id: question.id,
+            selected_labels: [selectedAnswer]
+          })
+        })
+        
+        if (response.ok) {
+          setShowExplanation(true)
+        }
+      } catch (error) {
+        console.error("Failed to submit answer:", error)
+        // Fallback to local behavior if API fails
+        setShowExplanation(true)
+      } finally {
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -138,7 +166,7 @@ export function QuestionCard({
               <button
                 key={option.key}
                 onClick={() => !isSubmitted && setSelectedAnswer(option.key)}
-                disabled={isSubmitted}
+                disabled={isSubmitted || isSubmitting}
                 className={cn(
                   "flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-all",
                   optionStyle
@@ -242,9 +270,10 @@ export function QuestionCard({
           <Button
             size="sm"
             onClick={handleSubmit}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            disabled={isSubmitting}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 min-w-[100px]"
           >
-            {"정답 확인"}
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "정답 확인"}
           </Button>
         ) : showExplanation ? (
           <Button

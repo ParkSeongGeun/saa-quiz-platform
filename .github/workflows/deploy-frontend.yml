@@ -51,6 +51,8 @@ jobs:
           pnpm install --frozen-lockfile
 
       - name: Build Next.js app
+        env:
+          NEXT_PUBLIC_API_URL: https://saa-quiz.click
         run: |
           cd frontend
           pnpm build

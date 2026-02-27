@@ -1,12 +1,14 @@
 "use client"
 
+import { useAuth } from "@/hooks/use-auth"
 import { AppShell } from "@/components/app-shell"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { DomainProgress } from "@/components/dashboard/domain-progress"
-import { RecentActivity } from "@/components/dashboard/recent-activity"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 
 export default function DashboardPage() {
+  useAuth()
+
   return (
     <AppShell>
       <div className="space-y-4">
@@ -22,9 +24,8 @@ export default function DashboardPage() {
         <QuickActions />
         <StatsCards />
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div>
           <DomainProgress />
-          <RecentActivity />
         </div>
       </div>
     </AppShell>

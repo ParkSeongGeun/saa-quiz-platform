@@ -9,7 +9,7 @@ router = APIRouter(prefix="/questions", tags=["questions"])
 
 @router.get("/", response_model=List[schemas.QuestionListResponse])
 def get_questions(
-    skip: int = 0, limit: int = 100,
+    skip: int = 0, limit: int = 1000,
     domain: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useAuth } from "@/hooks/use-auth"
 import { AppShell } from "@/components/app-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +20,8 @@ import { cn } from "@/lib/utils"
 const initialBookmarkedIds = [1, 3, 5, 6, 8]
 
 export default function BookmarksPage() {
+  useAuth()
+
   const [bookmarkedIds, setBookmarkedIds] = useState<number[]>(initialBookmarkedIds)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null)

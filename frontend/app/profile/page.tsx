@@ -1,6 +1,7 @@
 "use client"
 
 import { AppShell } from "@/components/app-shell"
+import { useAuth } from "@/hooks/use-auth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,6 +49,8 @@ const achievements = [
 ]
 
 export default function ProfilePage() {
+  useAuth()
+
   return (
     <AppShell>
       <div className="space-y-4">

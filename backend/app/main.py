@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, questions, submit, flags, tips, wrong
+from .routers import auth, questions, submit, flags, tips, wrong, stats
 from .database import engine, Base
 from dotenv import load_dotenv
 
@@ -30,6 +30,7 @@ app.include_router(submit.router, prefix="/api")
 app.include_router(flags.router, prefix="/api")
 app.include_router(tips.router, prefix="/api")
 app.include_router(wrong.router, prefix="/api")
+app.include_router(stats.router, prefix="/api")
 
 # ALB Health Check
 @app.get("/health")

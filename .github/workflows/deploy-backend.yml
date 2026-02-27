@@ -44,48 +44,36 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Deploy to EC2
+      - name: Deploy to EC2 via SSM
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          INSTANCE_IDS: "${{ secrets.EC2_INSTANCE_ID_1 }} ${{ secrets.EC2_INSTANCE_ID_2 }}"
         run: |
-          # SSH 키 설정
-          echo "$EC2_SSH_KEY" > private_key.pem
-          chmod 600 private_key.pem
+          # SSM 명령 실행
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids $INSTANCE_IDS \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands="[
+              \"aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY\",
+              \"docker stop saa-quiz-backend || true\",
+              \"docker rm saa-quiz-backend || true\",
+              \"docker pull $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest\",
+              \"docker run -d --name saa-quiz-backend -p 8000:8000 --env-file /home/ubuntu/.env.production --restart unless-stopped $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest\",
+              \"docker image prune -af\"
+            ]" \
+            --output text \
+            --query "Command.CommandId")
 
-          # EC2에 배포
-          ssh -o StrictHostKeyChecking=no -i private_key.pem ${EC2_USER}@${EC2_HOST} << EOF
-            # ECR 로그인
-            aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+          echo "SSM Command ID: $COMMAND_ID"
 
-            # 기존 컨테이너 중지 및 제거
-            docker stop saa-quiz-backend || true
-            docker rm saa-quiz-backend || true
+          # 각 인스턴스별로 명령 완료 대기
+          for INSTANCE_ID in $INSTANCE_IDS; do
+            echo "Waiting for command to complete on instance $INSTANCE_ID..."
+            aws ssm wait command-executed \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID"
 
-            # 새 이미지 Pull
-            docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            echo "✅ Deployment completed on instance $INSTANCE_ID"
+          done
 
-            # 컨테이너 실행
-            docker run -d \
-              --name saa-quiz-backend \
-              -p 8000:8000 \
-              --env-file /home/ubuntu/.env.production \
-              --restart unless-stopped \
-              ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-
-            # 이전 이미지 정리
-            docker image prune -af
-          EOF
-
-          # SSH 키 삭제
-          rm -f private_key.pem
-
-      - name: Verify deployment
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-        run: |
-          sleep 5
-          curl -f http://${EC2_HOST}:8000/health || exit 1
+          echo "🚀 All instances deployed successfully!"

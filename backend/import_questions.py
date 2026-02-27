@@ -1,7 +1,9 @@
 import json
 import os
 import pymysql
+import boto3
 from dotenv import load_dotenv
+from botocore.exceptions import ClientError
 
 # ENV_FILE 환경 변수가 있으면 해당 파일을 로드, 없으면 기본 .env 로드
 env_path = os.getenv("ENV_FILE", ".env")
@@ -9,12 +11,35 @@ load_dotenv(env_path)
 
 print(f"로드된 환경 설정 파일: {env_path}")
 
+def get_db_credentials():
+    """AWS Secrets Manager에서 자격 증명을 가져오거나 환경 변수에서 가져옵니다."""
+    secret_name = os.getenv("AWS_SECRET_NAME")
+    region_name = os.getenv("AWS_REGION", "ap-northeast-2")
+
+    # AWS Secret Name이 설정되어 있으면 AWS에서 가져옴
+    if secret_name:
+        print(f"AWS Secrets Manager({secret_name})에서 자격 증명을 가져오는 중...")
+        session = boto3.session.Session()
+        client = session.client(service_name='secretsmanager', region_name=region_name)
+        try:
+            get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+            secret = json.loads(get_secret_value_response['SecretString'])
+            return secret.get('username'), secret.get('password')
+        except ClientError as e:
+            print(f"Secrets Manager 에러: {e}")
+            raise e
+    
+    # 없으면 로컬 환경 변수 사용
+    return os.getenv("DB_USER"), os.getenv("DB_PASS")
+
 # DB 연결 설정
+db_user, db_pass = get_db_credentials()
+
 conn = pymysql.connect(
     host=os.getenv("DB_HOST", "127.0.0.1"),
     port=int(os.getenv("DB_PORT", 3306)),
-    user=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASS"),
+    user=db_user,
+    password=db_pass,
     database=os.getenv("DB_NAME"),
     charset="utf8mb4",
 )

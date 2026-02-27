@@ -34,7 +34,7 @@ class Submission(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     question_id = Column(Integer, ForeignKey("questions.id"))
-    selected_label = Column(String(1)) # selected_option_id -> selected_label
+    selected_label = Column(String(50)) # selected_option_id -> selected_label (increased to support multiple answers)
     is_correct = Column(Boolean)
     answered_at = Column(DateTime(timezone=True), server_default=func.now()) # submitted_at -> answered_at
 

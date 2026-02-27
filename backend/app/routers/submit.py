@@ -4,6 +4,9 @@ from ..database import get_db
 from .. import models, schemas
 from ..dependencies import get_current_user
 from typing import List, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/submit", tags=["submit"])
 
@@ -29,7 +32,9 @@ def submit_answer(
     # 사용자가 선택한 label들이 정답과 완전히 일치하는지 확인
     selected_labels = sorted(submission.selected_labels)
     is_correct = (selected_labels == correct_labels)
-    
+
+    logger.info(f"User {user_id} submitting Q{submission.question_id}: selected={selected_labels}, correct={correct_labels}, is_correct={is_correct}")
+
     # 제출 기록 저장
     new_submission = models.Submission(
         user_id=user_id,
@@ -39,7 +44,10 @@ def submit_answer(
     )
     db.add(new_submission)
     db.commit()
-    
+    db.refresh(new_submission)
+
+    logger.info(f"Submission saved: id={new_submission.id}, question_id={new_submission.question_id}, is_correct={new_submission.is_correct}")
+
     return schemas.SubmissionResponse(
         is_correct=is_correct,
         correct_labels=correct_labels,

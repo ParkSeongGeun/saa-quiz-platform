@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ import {
   StickyNote,
   Lightbulb,
   Loader2,
+  RotateCcw,
 } from "lucide-react"
 import type { Question } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
@@ -25,6 +26,9 @@ interface QuestionCardProps {
   totalCount: number
   onNext: () => void
   onPrev: () => void
+  onAnswer?: (questionId: number, isCorrect: boolean | null) => void
+  isSolved?: boolean
+  mode?: string | null
 }
 
 export function QuestionCard({
@@ -33,25 +37,89 @@ export function QuestionCard({
   totalCount,
   onNext,
   onPrev,
+  onAnswer,
+  isSolved,
+  mode,
 }: QuestionCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [showExplanation, setShowExplanation] = useState(false)
+  const [apiResultCorrect, setApiResultCorrect] = useState<boolean | null>(null)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [note, setNote] = useState("")
   const [showNote, setShowNote] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const isCorrect = selectedAnswer === question.correctAnswer
-  const isSubmitted = selectedAnswer !== null && showExplanation
+  // Use the API result if available, otherwise fallback to local check
+  const isCorrect = apiResultCorrect !== null ? apiResultCorrect : selectedAnswer === question.correctAnswer
+  const isSubmitted = (selectedAnswer !== null && showExplanation) || isSolved
+
+  // Sync isSolved state to local UI when question changes
+  useEffect(() => {
+    if (isSolved) {
+      setShowExplanation(true)
+    } else {
+      setShowExplanation(false)
+      setSelectedAnswer(null)
+      setApiResultCorrect(null)
+    }
+  }, [isSolved, question.id])
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+  // Fetch initial bookmark state
+  useEffect(() => {
+    const fetchBookmarkState = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(`${API_URL}/api/flags/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        if (response.ok) {
+          const bookmarks = await response.json()
+          const isBookmarked = bookmarks.some((b: any) => b.id === question.id)
+          setIsBookmarked(isBookmarked)
+        }
+      } catch (error) {
+        console.error("Failed to fetch bookmark state:", error)
+      }
+    }
+    fetchBookmarkState()
+  }, [question.id, API_URL])
+
+  // Fetch existing note when note section is opened
+  useEffect(() => {
+    if (showNote) {
+      const fetchNote = async () => {
+        try {
+          const token = localStorage.getItem('token')
+          const response = await fetch(`${API_URL}/api/tips/`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          if (response.ok) {
+            const notes = await response.json()
+            const existingNote = notes.find((n: any) => n.question_id === question.id)
+            if (existingNote) {
+              setNote(existingNote.tip_text)
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch note:", error)
+        }
+      }
+      fetchNote()
+    }
+  }, [showNote, question.id, API_URL])
 
   const handleSubmit = async () => {
     if (selectedAnswer) {
       setIsSubmitting(true)
       try {
         const token = localStorage.getItem('token')
-        const response = await fetch(`${API_URL}/api/submit`, {
+        const response = await fetch(`${API_URL}/api/submit/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -62,23 +130,93 @@ export function QuestionCard({
             selected_labels: [selectedAnswer]
           })
         })
-        
+
         if (response.ok) {
+          const data = await response.json()
+          setApiResultCorrect(data.is_correct)
           setShowExplanation(true)
+          // Notify parent component of answer result directly from backend
+          if (onAnswer) {
+            onAnswer(question.id, data.is_correct)
+          }
+        } else {
+          // If API fails with non-200, fallback to local
+          setShowExplanation(true)
+          if (onAnswer) onAnswer(question.id, selectedAnswer === question.correctAnswer)
         }
       } catch (error) {
         console.error("Failed to submit answer:", error)
-        // Fallback to local behavior if API fails
+        // Fallback to local behavior if API fails completely
         setShowExplanation(true)
+        if (onAnswer) onAnswer(question.id, selectedAnswer === question.correctAnswer)
       } finally {
         setIsSubmitting(false)
       }
     }
   }
 
+  const handleBookmark = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (isBookmarked) {
+        // Remove bookmark
+        const response = await fetch(`${API_URL}/api/flags/`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ question_id: question.id })
+        })
+        if (response.ok || response.status === 204) {
+          setIsBookmarked(false)
+        }
+      } else {
+        // Add bookmark
+        const response = await fetch(`${API_URL}/api/flags/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ question_id: question.id })
+        })
+        if (response.ok) {
+          setIsBookmarked(true)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to toggle bookmark:", error)
+    }
+  }
+
+  const handleSaveNote = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/api/tips/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          question_id: question.id,
+          tip_text: note
+        })
+      })
+      if (response.ok) {
+        alert("노트가 저장되었습니다!")
+      }
+    } catch (error) {
+      console.error("Failed to save note:", error)
+      alert("노트 저장에 실패했습니다.")
+    }
+  }
+
   const handleNext = () => {
     setSelectedAnswer(null)
     setShowExplanation(false)
+    setApiResultCorrect(null)
     setShowNote(false)
     onNext()
   }
@@ -86,8 +224,41 @@ export function QuestionCard({
   const handlePrev = () => {
     setSelectedAnswer(null)
     setShowExplanation(false)
+    setApiResultCorrect(null)
     setShowNote(false)
     onPrev()
+  }
+
+  const handleReset = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/api/submit/${question.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok || response.status === 204) {
+        // Reset local state
+        setSelectedAnswer(null)
+        setShowExplanation(false)
+        setApiResultCorrect(null)
+        
+        // Notify parent to remove the checkmark/X from sidebar
+        // We use a custom status if needed, but here we just pass null-like state
+        if (onAnswer) {
+          // Sending a specific signal to clear
+          // PracticePage's handleAnswer can be adapted or we can just send false/true
+          // Let's modify handleAnswer slightly later if needed, but for now:
+          // We'll call it with a way that triggers state removal.
+          // An elegant way is to refresh the answeredQuestions state in parent.
+          onAnswer(question.id, undefined as any) 
+        }
+      }
+    } catch (error) {
+      console.error("Failed to reset question progress:", error)
+    }
   }
 
   return (
@@ -103,6 +274,17 @@ export function QuestionCard({
           </Badge>
         </div>
         <div className="flex items-center gap-1.5">
+          {isSubmitted && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-muted-foreground hover:text-destructive transition-colors"
+              onClick={handleReset}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{"다시 풀기"}</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -122,7 +304,7 @@ export function QuestionCard({
               "gap-1.5 border-border text-muted-foreground hover:text-foreground",
               isBookmarked && "border-primary/50 text-primary"
             )}
-            onClick={() => setIsBookmarked(!isBookmarked)}
+            onClick={handleBookmark}
           >
             {isBookmarked ? (
               <BookmarkCheck className="h-3.5 w-3.5" />
@@ -245,7 +427,7 @@ export function QuestionCard({
               className="min-h-20 border-info/20 bg-card/50 text-card-foreground placeholder:text-muted-foreground"
             />
             <div className="mt-2 flex justify-end">
-              <Button size="sm" className="bg-info text-info-foreground hover:bg-info/90">
+              <Button size="sm" className="bg-info text-info-foreground hover:bg-info/90" onClick={handleSaveNote}>
                 {"저장"}
               </Button>
             </div>

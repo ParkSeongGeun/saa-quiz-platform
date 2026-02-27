@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS user_answers (
     id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id        INT UNSIGNED NOT NULL,
     question_id    INT UNSIGNED NOT NULL,
-    selected_label CHAR(1)      NOT NULL,
+    selected_label VARCHAR(50)  NOT NULL,
     is_correct     TINYINT(1)   NOT NULL DEFAULT 0,
     answered_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_user_wrong    (user_id, is_correct),

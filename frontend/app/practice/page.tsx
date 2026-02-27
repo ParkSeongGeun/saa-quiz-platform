@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { AppShell } from "@/components/app-shell"
 import { QuestionCard } from "@/components/practice/question-card"
@@ -9,7 +10,9 @@ import { domains as mockDomains, type Question } from "@/lib/mock-data"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Filter, ListOrdered, Loader2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Card } from "@/components/ui/card"
+import { Filter, ListOrdered, Loader2, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // Mapping between backend domain strings and frontend IDs
@@ -27,8 +30,12 @@ const reverseDomainMap: Record<string, string> = {
   "design-cost": "Cost",
 }
 
-export default function PracticePage() {
+function PracticeContent() {
   useAuth()
+
+  const searchParams = useSearchParams()
+  const mode = searchParams.get('mode') // 'bookmark', 'wrong', or null
+  const startQuestionId = searchParams.get('start') // question ID to start with
 
   const [questions, setQuestions] = useState<any[]>([])
   const [currentQuestionDetail, setCurrentQuestionDetail] = useState<Question | null>(null)
@@ -38,6 +45,7 @@ export default function PracticePage() {
   const [showList, setShowList] = useState(false)
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [jumpToQuestion, setJumpToQuestion] = useState("")
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -45,26 +53,51 @@ export default function PracticePage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const domainParam = selectedDomain ? reverseDomainMap[selectedDomain] : ''
-      const url = `${API_URL}/api/questions/${domainParam ? `?domain=${domainParam}` : ''}`
-      
+      let url = ''
+
+      if (mode === 'bookmark') {
+        url = `${API_URL}/api/flags/`
+      } else if (mode === 'wrong') {
+        url = `${API_URL}/api/wrong/`
+      } else {
+        const domainParam = selectedDomain ? reverseDomainMap[selectedDomain] : ''
+        url = `${API_URL}/api/questions/${domainParam ? `?domain=${domainParam}` : ''}`
+      }
+
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setQuestions(data)
-        setCurrentIndex(0)
+
+        const answered: Record<number, "correct" | "wrong"> = {}
+        data.forEach((q: any) => {
+          if (q.is_solved === true) {
+            answered[q.id] = "correct"
+          } else if (q.last_submission_correct === false) {
+            answered[q.id] = "wrong"
+          }
+        })
+        setAnsweredQuestions(answered)
+
+        if (startQuestionId) {
+          const startId = parseInt(startQuestionId)
+          const startIndex = data.findIndex((q: any) => q.id === startId)
+          setCurrentIndex(startIndex !== -1 ? startIndex : 0)
+        } else {
+          setCurrentIndex(0)
+        }
       }
     } catch (error) {
       console.error("Failed to fetch questions:", error)
     } finally {
       setLoading(false)
     }
-  }, [selectedDomain, API_URL])
+  }, [selectedDomain, mode, startQuestionId, API_URL])
 
   const fetchQuestionDetail = useCallback(async (id: number) => {
     setDetailLoading(true)
@@ -75,11 +108,17 @@ export default function PracticePage() {
           'Authorization': `Bearer ${token}`
         }
       })
-      
+
       if (response.ok) {
         const data = await response.json()
-        
-        // Map backend detail to frontend Question type
+
+        if (data.last_submission_correct !== null && data.last_submission_correct !== undefined) {
+          setAnsweredQuestions(prev => ({
+            ...prev,
+            [id]: data.last_submission_correct ? "correct" : "wrong"
+          }))
+        }
+
         const mappedQuestion: Question = {
           id: data.id,
           domain: domainMap[data.domain] || data.domain,
@@ -89,7 +128,10 @@ export default function PracticePage() {
             key: o.label,
             textKo: o.content
           })),
-          correctAnswer: data.options.find((o: any) => o.is_answer)?.label || "A",
+          correctAnswer: data.options
+            .filter((o: any) => o.is_answer)
+            .map((o: any) => o.label)
+            .join(","),
           explanationKo: data.explanation || ""
         }
         setCurrentQuestionDetail(mappedQuestion)
@@ -113,8 +155,36 @@ export default function PracticePage() {
     }
   }, [currentIndex, questions, fetchQuestionDetail])
 
-  const progress = questions.length > 0 
-    ? (Object.keys(answeredQuestions).length / questions.length) * 100 
+  const handleAnswer = (questionId: number, isCorrect: boolean | null) => {
+    setAnsweredQuestions(prev => {
+      const newState = { ...prev }
+      if (isCorrect === null || isCorrect === undefined) {
+        delete newState[questionId]
+      } else {
+        newState[questionId] = isCorrect ? "correct" : "wrong"
+      }
+      return newState
+    })
+  }
+
+  const handleJumpToQuestion = () => {
+    const questionNum = parseInt(jumpToQuestion)
+    if (isNaN(questionNum) || questionNum < 1) {
+      alert("올바른 문제 번호를 입력하세요")
+      return
+    }
+
+    const index = questions.findIndex(q => q.id === questionNum)
+    if (index !== -1) {
+      setCurrentIndex(index)
+      setJumpToQuestion("")
+    } else {
+      alert(`문제 ${questionNum}번을 찾을 수 없습니다`)
+    }
+  }
+
+  const progress = questions.length > 0
+    ? (Object.keys(answeredQuestions).length / questions.length) * 100
     : 0
 
   return (
@@ -122,9 +192,16 @@ export default function PracticePage() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">{"문제 풀기"}</h1>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              {mode === 'bookmark' ? '북마크 문제 풀기' : mode === 'wrong' ? '오답 문제 풀기' : '문제 풀기'}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              {"AWS SAA 시험 연습 문제를 풀어보세요."}
+              {mode === 'bookmark'
+                ? '북마크한 문제만 모아서 풀어보세요.'
+                : mode === 'wrong'
+                ? '틀린 문제만 모아서 다시 풀어보세요.'
+                : 'AWS SAA 시험 연습 문제를 풀어보세요.'
+              }
             </p>
           </div>
           <Button
@@ -141,50 +218,75 @@ export default function PracticePage() {
           </Button>
         </div>
 
-        {/* Domain Filter */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Badge
-            variant="outline"
-            className={cn(
-              "cursor-pointer transition-colors",
-              !selectedDomain
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:text-foreground"
-            )}
-            onClick={() => { setSelectedDomain(null); setCurrentIndex(0) }}
-          >
-            {"전체"}
-          </Badge>
-          {mockDomains.map((d) => (
+        {!mode && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Filter className="h-4 w-4 text-muted-foreground" />
             <Badge
-              key={d.id}
               variant="outline"
               className={cn(
                 "cursor-pointer transition-colors",
-                selectedDomain === d.id
+                !selectedDomain
                   ? "border-primary/50 bg-primary/10 text-primary"
                   : "border-border text-muted-foreground hover:text-foreground"
               )}
-              onClick={() => { setSelectedDomain(d.id); setCurrentIndex(0) }}
+              onClick={() => { setSelectedDomain(null); setCurrentIndex(0) }}
             >
-              {d.ko}
+              {"전체"}
             </Badge>
-          ))}
-        </div>
+            {mockDomains.map((d) => (
+              <Badge
+                key={d.id}
+                variant="outline"
+                className={cn(
+                  "cursor-pointer transition-colors",
+                  selectedDomain === d.id
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => { setSelectedDomain(d.id); setCurrentIndex(0) }}
+              >
+                {d.ko}
+              </Badge>
+            ))}
+          </div>
+        )}
 
-        {/* Progress bar */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{"진행률"}</span>
+            <div className="flex items-center gap-2">
+              <span>{"진행률"}</span>
+              <span className="text-primary font-medium">{Object.keys(answeredQuestions).length}/{questions.length} 완료</span>
+            </div>
             <span>{Math.round(progress)}%</span>
           </div>
           <Progress value={progress} className="h-1.5 bg-secondary" />
         </div>
 
-        {/* Main content */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">문제 번호로 이동:</span>
+          <Input
+            type="number"
+            min="1"
+            max={questions.length}
+            value={jumpToQuestion}
+            onChange={(e) => setJumpToQuestion(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleJumpToQuestion()}
+            placeholder="번호 입력"
+            className="w-24 h-8 text-sm"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleJumpToQuestion}
+            disabled={!jumpToQuestion}
+            className="h-8 gap-1.5"
+          >
+            <span>이동</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
         <div className="flex gap-4">
-          {/* Question list - desktop sidebar */}
           <div className="hidden w-60 shrink-0 lg:block">
             {loading ? (
               <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border">
@@ -192,12 +294,12 @@ export default function PracticePage() {
               </div>
             ) : (
               <QuestionListSidebar
-                questions={questions.map((q, idx) => ({
+                questions={questions.map((q) => ({
                   id: q.id,
                   domain: q.domain,
                   domainKo: mockDomains.find(d => d.id === domainMap[q.domain])?.ko || q.domain,
                   titleKo: q.question,
-                  options: [], // Not needed for sidebar
+                  options: [],
                   correctAnswer: "",
                   explanationKo: ""
                 }))}
@@ -208,29 +310,6 @@ export default function PracticePage() {
             )}
           </div>
 
-          {/* Mobile question list */}
-          {showList && (
-            <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden" onClick={() => setShowList(false)}>
-              <div className="fixed right-0 top-0 h-full w-72 border-l border-border bg-card p-4" onClick={(e) => e.stopPropagation()}>
-                <QuestionListSidebar
-                  questions={questions.map((q, idx) => ({
-                    id: q.id,
-                    domain: q.domain,
-                    domainKo: mockDomains.find(d => d.id === domainMap[q.domain])?.ko || q.domain,
-                    titleKo: q.question,
-                    options: [],
-                    correctAnswer: "",
-                    explanationKo: ""
-                  }))}
-                  currentIndex={currentIndex}
-                  answeredQuestions={answeredQuestions}
-                  onSelect={(index) => { setCurrentIndex(index); setShowList(false) }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Question card */}
           <div className="flex-1">
             {loading || detailLoading ? (
               <Card className="flex h-[400px] items-center justify-center border-border bg-card">
@@ -243,6 +322,9 @@ export default function PracticePage() {
                 totalCount={questions.length}
                 onNext={() => setCurrentIndex(Math.min(currentIndex + 1, questions.length - 1))}
                 onPrev={() => setCurrentIndex(Math.max(currentIndex - 1, 0))}
+                onAnswer={handleAnswer}
+                isSolved={mode === 'wrong' ? answeredQuestions[currentQuestionDetail.id] === 'correct' : !!answeredQuestions[currentQuestionDetail.id]}
+                mode={mode}
               />
             ) : (
               <Card className="flex h-[200px] flex-col items-center justify-center border-border bg-card text-center p-6">
@@ -257,4 +339,16 @@ export default function PracticePage() {
   )
 }
 
-import { Card } from "@/components/ui/card"
+export default function PracticePage() {
+  return (
+    <Suspense fallback={
+      <AppShell>
+        <div className="flex h-screen items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    }>
+      <PracticeContent />
+    </Suspense>
+  )
+}

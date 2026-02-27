@@ -28,6 +28,7 @@ class OptionResponse(BaseModel):
     id: int
     label: str
     content: str
+    is_answer: bool
     class Config:
         from_attributes = True
 
@@ -36,6 +37,7 @@ class QuestionListResponse(BaseModel):
     question: str
     domain: Optional[str]
     is_solved: bool = False
+    last_submission_correct: Optional[bool] = None
     class Config:
         from_attributes = True
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
-import { BookOpen, RotateCcw, Bookmark, Shuffle } from "lucide-react"
+import { BookOpen, RotateCcw, Bookmark } from "lucide-react"
 
 const actions = [
   {
@@ -12,14 +12,6 @@ const actions = [
     icon: BookOpen,
     color: "text-primary",
     bg: "bg-primary/10 hover:bg-primary/20",
-  },
-  {
-    href: "/practice?mode=random",
-    label: "랜덤 문제 풀기",
-    description: "무작위 순서로 풀기",
-    icon: Shuffle,
-    color: "text-info",
-    bg: "bg-info/10 hover:bg-info/20",
   },
   {
     href: "/review",
@@ -41,7 +33,7 @@ const actions = [
 
 export function QuickActions() {
   return (
-    <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+    <div className="grid grid-cols-3 gap-2.5">
       {actions.map((action) => (
         <Link key={action.href} href={action.href}>
           <Card className="h-full cursor-pointer border-border bg-card transition-colors hover:border-primary/30">

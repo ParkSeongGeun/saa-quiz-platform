@@ -51,7 +51,7 @@ export function QuestionListSidebar({
                   )}
                 </span>
                 <span className="truncate text-xs">
-                  Q{q.id}. {q.domainKo.slice(0, 12)}...
+                  Q{q.id}. {q.titleKo.slice(0, 30)}...
                 </span>
               </button>
             )

@@ -9,6 +9,7 @@ CREATE TABLE questions (
     id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     question    TEXT         NOT NULL,
     explanation TEXT,
+    domain      VARCHAR(100),
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

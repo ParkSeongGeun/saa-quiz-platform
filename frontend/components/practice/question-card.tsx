@@ -49,14 +49,20 @@ export function QuestionCard({
   const [showNote, setShowNote] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Use the API result if available, otherwise fallback to local check
-  const isCorrect = apiResultCorrect !== null ? apiResultCorrect : selectedAnswer === question.correctAnswer
-  const isSubmitted = (selectedAnswer !== null && showExplanation) || isSolved
+  // 핵심: 제출 완료 상태 정의
+  const isSubmitted = (apiResultCorrect !== null && showExplanation) || isSolved
+  
+  // 제출된 후에는 백엔드 결과(apiResultCorrect)를 1순위로, 
+  // 이미 풀린 문제라면 true를 기본값으로 사용 (로컬 체크는 보조 수단)
+  const isCorrect = apiResultCorrect !== null 
+    ? apiResultCorrect 
+    : (isSolved ? true : selectedAnswer === question.correctAnswer)
 
   // Sync isSolved state to local UI when question changes
   useEffect(() => {
     if (isSolved) {
       setShowExplanation(true)
+      setApiResultCorrect(null) // 이미 풀린 문제는 백엔드 결과 대기 상태가 아님
     } else {
       setShowExplanation(false)
       setSelectedAnswer(null)

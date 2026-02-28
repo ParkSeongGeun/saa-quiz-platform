@@ -5,8 +5,23 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // 이제 미들웨어가 리다이렉트를 처리하므로, 여기서는 단순히 상태값만 동기화합니다.
-    const storedToken = localStorage.getItem('token')
+    // 1. 먼저 localStorage에서 확인
+    let storedToken = localStorage.getItem('token')
+    
+    // 2. 만약 localStorage에 없는데 쿠키에는 있다면 (미들웨어가 통과시킨 경우)
+    if (!storedToken) {
+      const cookieToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1]
+      
+      if (cookieToken) {
+        // 쿠키의 토큰을 localStorage에 복사하여 API 요청이 가능하게 함
+        localStorage.setItem('token', cookieToken)
+        storedToken = cookieToken
+      }
+    }
+    
     setToken(storedToken)
     setIsLoading(false)
   }, [])

@@ -76,11 +76,14 @@ function PracticeContent() {
 
         const answered: Record<number, "correct" | "wrong"> = {}
         data.forEach((q: any) => {
-          if (q.is_solved === true) {
+          // Prioritize last_submission_correct over is_solved
+          // This ensures the most recent attempt is shown, not just "ever solved"
+          if (q.last_submission_correct === true) {
             answered[q.id] = "correct"
           } else if (q.last_submission_correct === false) {
             answered[q.id] = "wrong"
           }
+          // If last_submission_correct is null/undefined, don't mark it
         })
         setAnsweredQuestions(answered)
 
@@ -335,7 +338,7 @@ function PracticeContent() {
                 onNext={() => setCurrentIndex(Math.min(currentIndex + 1, questions.length - 1))}
                 onPrev={() => setCurrentIndex(Math.max(currentIndex - 1, 0))}
                 onAnswer={handleAnswer}
-                isSolved={mode === 'wrong' ? answeredQuestions[currentQuestionDetail.id] === 'correct' : !!answeredQuestions[currentQuestionDetail.id]}
+                solvedStatus={answeredQuestions[currentQuestionDetail.id] || null}
                 mode={mode}
               />
             ) : (

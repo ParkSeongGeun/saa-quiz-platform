@@ -27,7 +27,7 @@ interface QuestionCardProps {
   onNext: () => void
   onPrev: () => void
   onAnswer?: (questionId: number, isCorrect: boolean | null) => void
-  isSolved?: boolean
+  solvedStatus?: "correct" | "wrong" | null
   mode?: string | null
 }
 
@@ -38,7 +38,7 @@ export function QuestionCard({
   onNext,
   onPrev,
   onAnswer,
-  isSolved,
+  solvedStatus,
   mode,
 }: QuestionCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
@@ -49,26 +49,26 @@ export function QuestionCard({
   const [showNote, setShowNote] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // 핵심: 제출 완료 상태 정의
-  const isSubmitted = (apiResultCorrect !== null && showExplanation) || isSolved
+  // 핵심: 제출 완료 상태 정의 (API 결과가 있거나, 이미 풀린 상태 기록이 있는 경우)
+  const isSubmitted = (apiResultCorrect !== null && showExplanation) || !!solvedStatus
   
-  // 제출된 후에는 백엔드 결과(apiResultCorrect)를 1순위로, 
-  // 이미 풀린 문제라면 true를 기본값으로 사용 (로컬 체크는 보조 수단)
+  // 정답 여부 판단 로직 (Scenario 1 해결)
   const isCorrect = apiResultCorrect !== null 
     ? apiResultCorrect 
-    : (isSolved ? true : selectedAnswer === question.correctAnswer)
+    : (solvedStatus === "correct" ? true : (solvedStatus === "wrong" ? false : selectedAnswer === question.correctAnswer))
 
-  // Sync isSolved state to local UI when question changes
+  // Sync solvedStatus state to local UI when question changes
   useEffect(() => {
-    if (isSolved) {
+    if (solvedStatus) {
       setShowExplanation(true)
-      setApiResultCorrect(null) // 이미 풀린 문제는 백엔드 결과 대기 상태가 아님
+      // Set apiResultCorrect to match solvedStatus for correct explanation display
+      setApiResultCorrect(solvedStatus === "correct")
     } else {
       setShowExplanation(false)
       setSelectedAnswer(null)
       setApiResultCorrect(null)
     }
-  }, [isSolved, question.id])
+  }, [solvedStatus, question.id])
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -391,24 +391,12 @@ export function QuestionCard({
 
       {/* Explanation */}
       {showExplanation && (
-        <Card className={cn("border", isCorrect ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5")}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              {isCorrect ? (
-                <>
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm font-semibold text-success">{"정답입니다!"}</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-4 w-4 text-destructive" />
-                  <span className="text-sm font-semibold text-destructive">
-                    {"오답입니다. 정답: "}{question.correctAnswer}
-                  </span>
-                </>
-              )}
+        <Card className="border-border bg-card">
+          <CardContent className="p-4 space-y-2">
+            <div className="text-sm text-muted-foreground">
+              <span className="font-semibold">정답:</span> {question.correctAnswer}
             </div>
-            <div className="flex items-start gap-2 rounded-lg bg-card/50 p-3">
+            <div className="flex items-start gap-2 rounded-lg bg-secondary/30 p-3">
               <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <p className="text-sm leading-relaxed text-card-foreground">
                 {question.explanationKo}

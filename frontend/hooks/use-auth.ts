@@ -1,20 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 export function useAuth() {
-  const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // 이제 미들웨어가 리다이렉트를 처리하므로, 여기서는 단순히 상태값만 동기화합니다.
     const storedToken = localStorage.getItem('token')
-    if (!storedToken) {
-      router.push('/login')
-    } else {
-      setToken(storedToken)
-    }
+    setToken(storedToken)
     setIsLoading(false)
-  }, [router])
+  }, [])
 
   return { token, isLoading }
 }

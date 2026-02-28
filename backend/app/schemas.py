@@ -49,6 +49,7 @@ class QuestionDetailResponse(BaseModel):
     options: List[OptionResponse]
     is_flagged: bool = False
     last_submission_correct: Optional[bool] = None
+    last_selected_labels: List[str] = []
     class Config:
         from_attributes = True
 
